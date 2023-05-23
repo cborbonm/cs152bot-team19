@@ -7,15 +7,17 @@ class State(Enum):
     AWAITING_MESSAGE = auto()
     MESSAGE_IDENTIFIED = auto()
     REPORT_COMPLETE = auto()
+    REPORT_CANCELLED = auto()
 
 class ModReport:
     START_KEYWORD = "modreport"
     CANCEL_KEYWORD = "cancel"
     HELP_KEYWORD = "help"
 
-    def __init__(self, client):
+    def __init__(self, client, author_id):
         self.state = State.REPORT_START
         self.client = client
+        self.author_id = author_id
         self.message = None
     
     async def handle_message(self, message):
