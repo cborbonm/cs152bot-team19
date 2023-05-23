@@ -89,6 +89,7 @@ class ModBot(discord.Client):
             reply += "Use the `cancel` command to cancel the report process.\n"
             if author_id in mods.values():
                 reply += "Use the `modreport` command to begin the moderator reporting process.\n"
+            reply += "If you are a mod and haven't registered yourself, please add your ID to the repo.\n"
             reply += f"Your user ID is: {message.author.id} \n" 
             await message.channel.send(reply)
             return
