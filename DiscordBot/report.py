@@ -65,7 +65,8 @@ class Report:
         EXPL_CONT_PORN_KEYWORD: "Pornography"
     }
 
-    def __init__(self, client, author_id):
+    def __init__(self, report_num, client, author_id):
+        self.report_num = report_num
         self.state = State.REPORT_START
         self.client = client
         self.author_id = author_id
@@ -81,6 +82,7 @@ class Report:
 
     def __str__(self):
         s = "--------------------------------------------------\n"
+        s += f"Report Number: {self.report_num}\n"
         report_status = "In Progress"
         if self.state == State.REPORT_COMPLETE:
             report_status = "Complete"

@@ -14,11 +14,25 @@ class ModReport:
     CANCEL_KEYWORD = "cancel"
     HELP_KEYWORD = "help"
 
-    def __init__(self, client, author_id):
+    def __init__(self, report_num, client, author_id):
+        self.report_num = report_num
         self.state = State.REPORT_START
         self.client = client
         self.author_id = author_id
         self.message = None
+
+    def __str__(self) -> str:
+        s = "--------------------------------------------------\n"
+        s += f"Report Number: {self.report_num}\n"
+        report_status = "In Progress"
+        if self.state == State.REPORT_COMPLETE:
+            report_status = "Complete"
+        if self.state == State.REPORT_CANCELLED:
+            report_status = "Cancelled"
+        s += f"Report Status: {report_status}\n"
+        s += f"Author ID: {self.author_id}\n"
+        s += "--------------------------------------------------\n"
+        return s
     
     async def handle_message(self, message):
         '''

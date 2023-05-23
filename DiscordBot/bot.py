@@ -8,6 +8,7 @@ import re
 import requests
 from report import Report
 from mod_report import ModReport
+from typing import Dict
 import pdb
 
 # Set up logging to the console
@@ -37,6 +38,16 @@ else:
         # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
         mods = json.load(f)
 
+# There should be a file called 'report_number.json' inside the same folder as this file
+report_number_path = "report_number.json"
+if not os.path.isfile(report_number_path):
+    print(f"{report_number_path} not found!")
+    report_num = 1
+else:
+    with open(report_number_path) as f:
+        # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
+        obj: Dict = json.load(f)
+        report_num = obj.get("report_num", 0)
 
 class ModBot(discord.Client):
     def __init__(self):
@@ -46,11 +57,24 @@ class ModBot(discord.Client):
         self.group_num = None
         self.mod_channels = {}  # Map from guild to the mod channel id for that guild
         self.reports = {}  # Map from user IDs to the state of their report
+        self.next_report_num = report_num
+
+    async def cleanup(self):
+        print("\nCleaning up!")
+        with open(report_number_path, "w") as f:
+            # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
+            json.dump({"report_num": self.next_report_num}, f)
+        return
+    
+    async def close(self):
+        await self.cleanup()
+        await super().close()
 
     async def on_ready(self):
-        print(f"{self.user.name} has connected to Discord! It is these guilds:")
+        print(f"{self.user.name} has connected to Discord! It has these guilds:")
         for guild in self.guilds:
             print(f" - {guild.name}")
+        print(f"The next report number is {self.next_report_num}.")
         print("Press Ctrl-C to quit.")
 
         # Parse the group number out of the bot's name
@@ -108,9 +132,11 @@ class ModBot(discord.Client):
 
             # We don't currently have an active report for this user, add one
             if message.content.startswith(Report.START_KEYWORD):
-                self.reports[author_id] = Report(self, author_id)
+                self.reports[author_id] = Report(self.next_report_num, self, author_id)
+                self.next_report_num += 1
             elif message.content.startswith(ModReport.START_KEYWORD):
-                self.reports[author_id] = ModReport(self, author_id)
+                self.reports[author_id] = ModReport(self.next_report_num, self, author_id)
+                self.next_report_num += 1
             else:
                 await message.channel.send(
                     "Sorry, something went wrong starting your report. Please try again."
