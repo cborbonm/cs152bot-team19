@@ -15,6 +15,8 @@ class State(Enum):
     AWAITING_WHAT_USERNAME = auto()
     
     AWAITING_WHAT_REASON = auto()
+    AWAITING_REASON_TYPE = auto()
+    AWAITING_ANYTHING_ELSE = auto()
 
     REPORT_COMPLETE = auto()
     REPORT_CANCELLED = auto()
@@ -36,6 +38,21 @@ class Report:
     EXPLICIT_KEYWORD = "e"
     OTHER_KEYWORD = "o"
 
+    HARASS_SENS_INFO_KEYWORD = "l"
+    HARASS_BULLYING_KEYWORD = "b"
+    HARASS_HATE_SPEECH_KEYWORD = "h"
+
+    DANG_INFO_SUICIDE_KEYWORD = "s"
+    DANG_INFO_THREAT_KEYWORD = "t"
+
+    MIS_INFO_FRAUD_KEYWORD = "f"
+    MIS_INFO_IMPER_KEYWORD = "i"
+    MIS_INFO_SPAM_KEYWORD = "s"
+
+    EXPL_CONT_CHILD_KEYWORD = "c"
+    EXPL_CONT_PORN_KEYWORD = "p"
+
+
     def __init__(self, client):
         self.state = State.REPORT_START
         self.client = client
@@ -44,6 +61,8 @@ class Report:
         self.who = None
         self.account = None
         self.reason = None
+        self.reason_type = None
+        self.anything_else = None
     
     async def handle_message(self, message):
         '''
@@ -58,6 +77,7 @@ class Report:
         
         if self.state == State.REPORT_START:
             reply =  "Thank you for starting the reporting process. "
+            reply += f"Say `{self.CANCEL_KEYWORD}` at any time to cancel the report."
             reply += f"Say `{self.HELP_KEYWORD}` at any time for more information.\n\n"
             reply += "Please copy paste the link to the message you want to report.\n"
             reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`."
@@ -105,15 +125,74 @@ class Report:
                 self.who = self.MYSELF_KEYWORD
                 self.help_message = self.get_report_reason_prompt()
                 self.state = State.AWAITING_WHAT_REASON
-                return [self.get_report_reason_prompt()]
+                return ["Thank you! ", self.get_report_reason_prompt()]
             
             if message.content.startswith(self.SOMEONE_ELSE_KEYWORD):
                 self.who = self.SOMEONE_ELSE_KEYWORD
                 self.help_message = self.get_report_reason_prompt()
                 self.state = State.AWAITING_WHAT_REASON
-                return [self.get_report_reason_prompt()]
+                return ["Thank you! ", self.get_report_reason_prompt()]
             
             return ["I'm sorry, I didn't understand that response. Please try again or say `cancel` to cancel."]
+
+        if self.state == State.AWAITING_WHAT_REASON:
+            if message.content == self.HELP_KEYWORD:
+                return [self.get_help_message()]
+            
+            if message.content == self.HARASSMENT_KEYWORD:
+                self.reason = self.HARASSMENT_KEYWORD
+                self.help_message = self.get_harassment_type_prompt()
+                self.state = State.AWAITING_REASON_TYPE
+                return ["Thank you! You have selected `Harassment`. ", 
+                        self.get_harassment_type_prompt()]
+            
+            if message.content == self.DANGEROUS_INFO_KEYWORD:
+                self.reason = self.DANGEROUS_INFO_KEYWORD
+                self.help_message = self.get_dang_info_type_prompt()
+                self.state = State.AWAITING_REASON_TYPE
+                return ["Thank you! You have selected `Dangerous Information`. ", 
+                        self.get_dang_info_type_prompt()]
+            
+            if message.content == self.MISLEADING_INFO_KEYWORD:
+                self.reason = self.MISLEADING_INFO_KEYWORD
+                self.help_message = self.get_mis_info_type_prompt()
+                self.state = State.AWAITING_REASON_TYPE
+                return ["Thank you! You have selected `Misleading Information`. ", 
+                        self.get_mis_info_type_prompt()]
+            
+            if message.content == self.EXPLICIT_KEYWORD:
+                self.reason = self.EXPLICIT_KEYWORD
+                self.help_message = self.get_expl_cont_type_prompt()
+                self.state = State.AWAITING_REASON_TYPE
+                return ["Thank you! You have selected `Explicit Content`. ", 
+                        self.get_expl_cont_type_prompt()]
+            
+            if message.content == self.OTHER_KEYWORD:
+                self.reason = self.OTHER_KEYWORD
+                self.help_message = "Please explain the reason for your report."
+                self.state = State.AWAITING_REASON_TYPE
+                return ["Thank you! You have selected `Dangerous Information`. ", 
+                        self.help_message]
+
+            return ["I'm sorry, I didn't understand that response. Please try again or say `cancel` to cancel."]
+
+        if self.state == State.AWAITING_REASON_TYPE:
+            if message.content == self.HELP_KEYWORD:
+                return [self.get_help_message()]
+            
+            self.reason_type = message.content
+            self.help_message = "Please respond with anything else you would like to add to the report."
+            self.state = State.AWAITING_ANYTHING_ELSE
+            return ["Thank you! ", self.help_message]
+        
+        if self.state == State.AWAITING_ANYTHING_ELSE:
+            if message.content == self.HELP_KEYWORD:
+                return [self.get_help_message()]
+
+            self.anything_else = message.content
+            self.help_message = None
+            self.state = State.REPORT_COMPLETE
+            return ["Thank you! Your report has been recorded and will be processed by our moderation team soon."]
 
         return []
 
@@ -122,11 +201,37 @@ class Report:
 
     def get_report_reason_prompt(self):
         prompt = "Please enter the reason for your report.\n"
-        prompt += f"1. For harassment, say `{self.HARASSMENT_KEYWORD}`.\n"
-        prompt += f"2. For dangerous information, say `{self.DANGEROUS_INFO_KEYWORD}`.\n"
-        prompt += f"3. For misleading information, say `{self.MISLEADING_INFO_KEYWORD}`.\n"
-        prompt += f"4. For explicit content, say `{self.EXPLICIT_KEYWORD}`.\n"
-        prompt += f"5. For other reasons, say `{self.OTHER_KEYWORD}`.\n"
+        prompt += f"1. For harassment, type `{self.HARASSMENT_KEYWORD}`.\n"
+        prompt += f"2. For dangerous information, type `{self.DANGEROUS_INFO_KEYWORD}`.\n"
+        prompt += f"3. For misleading information, type `{self.MISLEADING_INFO_KEYWORD}`.\n"
+        prompt += f"4. For explicit content, type `{self.EXPLICIT_KEYWORD}`.\n"
+        prompt += f"5. For other reasons, type `{self.OTHER_KEYWORD}`.\n"
+        return prompt
+
+    def get_harassment_type_prompt(self):
+        prompt = "Please select the type of harassment.\n"
+        prompt += f"1. For leaking sensitive information, type `{self.HARASS_SENS_INFO_KEYWORD}`.\n"
+        prompt += f"2. For bullying, type `{self.HARASS_BULLYING_KEYWORD}`.\n"
+        prompt += f"3. For hate speech, type `{self.HARASS_HATE_SPEECH_KEYWORD}`.\n"
+        return prompt
+
+    def get_dang_info_type_prompt(self):
+        prompt = "Please select the type of dangerous information.\n"
+        prompt += f"1. For suicide/self-harm content, type `{self.DANG_INFO_SUICIDE_KEYWORD}`.\n"
+        prompt += f"2. For threats of violence, type `{self.DANG_INFO_THREAT_KEYWORD}`.\n"
+        return prompt
+
+    def get_mis_info_type_prompt(self):
+        prompt = "Please select the type of misleading information.\n"
+        prompt += f"1. For fraud, type `{self.MIS_INFO_FRAUD_KEYWORD}`.\n"
+        prompt += f"2. For impersonation, type `{self.MIS_INFO_IMPER_KEYWORD}`.\n"
+        prompt += f"3. For spam, type `{self.MIS_INFO_SPAM_KEYWORD}`.\n"
+        return prompt
+
+    def get_expl_cont_type_prompt(self):
+        prompt = "Please select the type of explicit content.\n"
+        prompt += f"1. For child abuse or harassment, type `{self.EXPL_CONT_CHILD_KEYWORD}`.\n"
+        prompt += f"2. For pornography, type `{self.EXPL_CONT_PORN_KEYWORD}`.\n"
         return prompt
 
     def report_complete(self):
