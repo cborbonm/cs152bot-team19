@@ -52,6 +52,19 @@ class Report:
     EXPL_CONT_CHILD_KEYWORD = "c"
     EXPL_CONT_PORN_KEYWORD = "p"
 
+    TYPE_MAP = {
+        HARASS_SENS_INFO_KEYWORD: "Leaking Sensitive Information",
+        HARASS_BULLYING_KEYWORD: "Bullying",
+        HARASS_HATE_SPEECH_KEYWORD: "Hate Speech",
+        DANG_INFO_SUICIDE_KEYWORD: "Suicide/Self-Harm",
+        DANG_INFO_THREAT_KEYWORD: "Threats",
+        MIS_INFO_FRAUD_KEYWORD: "Fraud",
+        MIS_INFO_IMPER_KEYWORD: "Impersonation",
+        MIS_INFO_SPAM_KEYWORD: "Spam",
+        EXPL_CONT_CHILD_KEYWORD: "Child Abuse",
+        EXPL_CONT_PORN_KEYWORD: "Pornography"
+    }
+
     def __init__(self, client, author_id):
         self.state = State.REPORT_START
         self.client = client
@@ -76,12 +89,13 @@ class Report:
         s += f"Report Status: {report_status}\n"
         s += f"Author ID: {self.author_id}\n"
         s += "--------------------------------------------------\n"
-        m = self.message_text if self.message else "`Awaiting`\n"
-        s += f"Message: {m}"
+        m = self.message_text if self.message else "`Awaiting`"
+        s += f"Message: {m}\n"
         s += f"Person Involved: `{self.who if self.who else 'Awaiting'}`\n"
         s += f"Other Username: `{self.other_username if self.other_username else 'N/A'}`\n"
         s += "--------------------------------------------------\n"
         s += f"Reason For Report: `{self.reason if self.reason else 'Awaiting'}`\n"
+        s += f"Type: `{self.TYPE_MAP[self.reason_type] if self.reason_type else 'Awaiting'}`\n"
         s += f"Additional Comments: `{self.anything_else if self.anything_else else 'N/A'}`\n"
         s += "--------------------------------------------------\n"
 
@@ -106,9 +120,9 @@ class Report:
             reply += f"Say `{self.CANCEL_KEYWORD}` at any time to cancel the report.\n"
             reply += f"Say `{self.HELP_KEYWORD}` at any time for more information.\n\n"
             self.help_message = (
-                "Please copy paste the link to the message you want to report.\n"
+                "Please copy paste the link to the message you want to report.\n" +
+                "You can obtain this link by right-clicking the message and clicking `Copy Message Link`."
             )
-            self.help_message += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`."
             self.state = State.AWAITING_MESSAGE
             return [reply, self.help_message]
 
@@ -138,14 +152,23 @@ class Report:
 
             # Here we've found the message - it's up to you to decide what to do next!
             self.state = State.MESSAGE_IDENTIFIED
+            message_content = self.message.content.replace('```', '``')
             self.message_text = (
-                f"```{self.message.author.display_name}: {self.message.content}```"
+                f"```{self.message.author.display_name}: {message_content}```"
             )
             self.help_message = f"I found this message: {self.message_text}\n"
             self.help_message += f"Does it look correct? Please respond with `{self.YES_KEYWORD}` or `{self.NO_KEYWORD}`. "
             return ["Thank you! ", self.help_message]
 
         if self.state == State.MESSAGE_IDENTIFIED:
+            if message.content == self.NO_KEYWORD:
+                reply = "I see. Please try again.\n"
+                self.help_message = (
+                    "Please copy paste the link to the message you want to report.\n" +
+                    "You can obtain this link by right-clicking the message and clicking `Copy Message Link`."
+                )
+                self.state = State.AWAITING_MESSAGE
+                return [reply, self.help_message]
             reply = "Thank you! Who is this report regarding?\n"
             self.help_message = f"1. If this report involves you directly, please say `{self.MYSELF_KEYWORD}`.\n"
             self.help_message += f"2. If this report does not involve you directly, please say `{self.SOMEONE_ELSE_KEYWORD}`.\n"
@@ -248,8 +271,10 @@ class Report:
             self.help_message = None
             self.state = State.REPORT_COMPLETE
             return [
-                "Thank you! Your report has been recorded and will be processed ",
+                "Thank you! Your report has been recorded and will be processed " +
                 "by our moderation team as soon as possible.",
+                "Here is a summary of your report:\n" +
+                str(self)
             ]
 
         return []
