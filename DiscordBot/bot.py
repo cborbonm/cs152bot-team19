@@ -7,6 +7,7 @@ import logging
 import re
 import requests
 from report import Report
+from mod_report import ModReport
 import pdb
 
 # Set up logging to the console
@@ -24,6 +25,15 @@ with open(token_path) as f:
     # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
     tokens = json.load(f)
     discord_token = tokens['discord']
+
+# There should be a file called 'mods.json' inside the same folder as this file
+mods_path = 'mods.json'
+if not os.path.isfile(mods_path):
+    print(f"{mods_path} not found!")
+else:
+    with open(mods_path) as f:
+        # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
+        mods = json.load(f)
 
 
 class ModBot(discord.Client):
@@ -71,23 +81,35 @@ class ModBot(discord.Client):
             await self.handle_dm(message)
 
     async def handle_dm(self, message):
+        author_id = message.author.id
+        
         # Handle a help message
         if message.content == Report.HELP_KEYWORD:
             reply =  "Use the `report` command to begin the reporting process.\n"
             reply += "Use the `cancel` command to cancel the report process.\n"
+            if author_id in mods.values():
+                reply += "Use the `modreport` command to begin the moderator reporting process.\n"
+            reply += f"Your user ID is: {message.author.id} \n" 
             await message.channel.send(reply)
             return
 
-        author_id = message.author.id
         responses = []
 
         # Only respond to messages if they're part of a reporting flow
-        if author_id not in self.reports and not message.content.startswith(Report.START_KEYWORD):
+        if author_id not in self.reports and not (message.content.startswith(Report.START_KEYWORD) 
+                                                  or message.content.startswith(ModReport.START_KEYWORD)):
             return
 
         # If we don't currently have an active report for this user, add one
         if author_id not in self.reports:
-            self.reports[author_id] = Report(self)
+            if message.content.startswith(Report.START_KEYWORD):
+                self.reports[author_id] = Report(self)
+            elif message.content.startswith(ModReport.START_KEYWORD):
+                self.reports[author_id] = ModReport(self)
+            else:
+                await message.channel.send(
+                    "Sorry, something went wrong starting your report. Please try again."
+                    )
 
         # Let the report class handle this message; forward all the messages it returns to uss
         responses = await self.reports[author_id].handle_message(message)
