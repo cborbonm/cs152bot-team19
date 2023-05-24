@@ -28,6 +28,7 @@ class Report:
 
     MYSELF_KEYWORD = "myself"
     SOMEONE_ELSE_KEYWORD = "someone else"
+    PLATFORM_KEYWORD = "platform"
 
     YES_KEYWORD = "yes"
     NO_KEYWORD = "no"
@@ -82,7 +83,7 @@ class Report:
 
     def __str__(self):
         s = "--------------------------------------------------\n"
-        s += f"Report Number: {self.report_num}\n"
+        s += f"Report Number: `{self.report_num}`\n"
         report_status = "In Progress"
         if self.state == State.REPORT_COMPLETE:
             report_status = "Complete"
@@ -118,7 +119,7 @@ class Report:
             return self.get_help_messages()
 
         if self.state == State.REPORT_START:
-            reply = "Thank you for starting the reporting process.\n"
+            reply = f"Thank you for starting the reporting process. Your report number is `{self.report_num}`.\n"
             reply += f"Say `{self.CANCEL_KEYWORD}` at any time to cancel the report.\n"
             reply += f"Say `{self.HELP_KEYWORD}` at any time for more information.\n\n"
             self.help_message = (
@@ -173,7 +174,8 @@ class Report:
                 return [reply, self.help_message]
             reply = "Thank you! Who is this report regarding?\n"
             self.help_message = f"1. If this report involves you directly, please say `{self.MYSELF_KEYWORD}`.\n"
-            self.help_message += f"2. If this report does not involve you directly, please say `{self.SOMEONE_ELSE_KEYWORD}`.\n"
+            self.help_message += f"2. If this report is regarding someone else, please say `{self.SOMEONE_ELSE_KEYWORD}`.\n"
+            self.help_message += f"3. If this report concerns the platform, please say `{self.PLATFORM_KEYWORD}`.\n"
             self.state = State.AWAITING_WHO_REPORT
             return [reply, self.help_message]
 
@@ -263,7 +265,7 @@ class Report:
         if self.state == State.AWAITING_REASON_TYPE:
             self.reason_type = message.content
             self.help_message = (
-                "Please respond with anything else you would like to add to the report."
+                "Please respond with anything else you would like to add to the report. "
             )
             self.state = State.AWAITING_ANYTHING_ELSE
             return ["Thank you! ", self.help_message]
@@ -275,6 +277,10 @@ class Report:
             return [
                 "Thank you! Your report has been recorded and will be processed " +
                 "by our moderation team as soon as possible.",
+                "We will notify you once a decision has been made. The possible outcomes are:\n" +
+                "1. Post removal,\n"+
+                "2. User suspension or temporary ban, or\n" +
+                "3. No action.\n",
                 "Here is a summary of your report:\n" +
                 str(self)
             ]
