@@ -10,6 +10,7 @@ class State(Enum):
     FINALIZE_OUTCOME = auto()
     REPORT_COMPLETE = auto()
     REPORT_CANCELLED = auto()
+    MOD_REPORT_COMPLETE  = auto()
 
 
 
@@ -20,10 +21,21 @@ class ModReport:
 
     AUTO_FLAGGING_KEYWORD = "af"
 
+    NO_ACTION_KEYWORD = "no action"
+    BAN_ATTACKER_KEYWORD = "attacker ban"
+    ENGAGE_LAW_KEYWORD = "law enforcement"
+    BOTH_ACTIONS_KEYWORD = "max penalty"
+
+
+
     YES_KEYWORD = "yes"
     NO_KEYWORD = "no"
 
     def __init__(self, report_num, client, author_id):
+        self.report = None
+        self.victim = None
+        self.attacker = None
+        self.modChannel = None
         self.report_num = report_num
         self.author_id = author_id
         self.state = State.MOD_REPORT_START
@@ -33,6 +45,8 @@ class ModReport:
         self.source = None
         self.reason = None
         self.credibility = None
+        self.outcome = None
+
 
     def __str__(self) -> str:
         s = "--------------------------------------------------\n"
@@ -84,18 +98,43 @@ class ModReport:
             if message.content.startswith(self.YES_KEYWORD):
                 return ["Please contact a specialized team to make a final outcome on this report."]
             else:
-                return ["Contact the relevant stakeholders and give the attacker a warning/education."]
-        
+                self.victim.send("*Resources for the victim*")
+                self.attacker.send("*Warning for commiting this violation:...*")
+                return ["Contact the relevant stakeholders."]
         if self.state == State.FINALIZE_OUTCOME:
+            self.state = State.MOD_REPORT_COMPLETE
             if self.credibility == False:
                 return ["No action necessary."]
             else:
-                return ["Decide on necessary actions."]
-
+                return ["Based on the contents of the reports what steps should be taken?\n" + 
+                        "The following options include\n" +
+                        "1. No action\n"+
+                        "2. Attacker account temporary suspension/permanent ban \n" + 
+                        "3. Contact law enforcement. \n" +
+                        f"For option 1 say: `{self.NO_ACTION_KEYWORD}`\n" +
+                        f"For option 2 say: `{self.BAN_ATTACKER_KEYWORD}`\n" +
+                        f"For option 3 say: `{self.ENGAGE_LAW_KEYWORD}`\n" +
+                        f"For both option 2 and 3 say: `{self.BOTH_ACTIONS_KEYWORD}`\n"
+                        ]
+        if self.state == State.MOD_REPORT_COMPLETE:
+            if message.content.startswith(self.NO_ACTION_KEYWORD):
+                return ["The user who submitted report will be notified that no action will be taken."]
+            elif message.content.startswith(self.BAN_ATTACKER_KEYWORD):
+                self.victim.send("The user who was reported has been banned.")
+                self.attacker.send("Hello, you have been banned.")
+                return ["The victim and attacker will be notified of the actions taken."]
+            elif message.content.startswith(self.ENGAGE_LAW_KEYWORD):
+                self.victim.send("Thank you for the report, proper actions have been taken.")
+                self.modChannel.send("This user ____ has been banned.")
+                return ["Law enforcement will be contacted."]
+            elif message.content.startswith(self.BOTH_ACTIONS_KEYWORD):
+                self.victim.send("Thank you for the report, proper actions have been taken.")
+                return ["Law enforcement will be contacted."]
+        
         return []
 
     def report_complete(self):
-        return self.state == State.REPORT_COMPLETE
+        return self.state == State.MOD_REPORT_COMPLETE
     
 
 
