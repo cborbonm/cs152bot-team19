@@ -7,6 +7,7 @@ import logging
 import re
 import requests
 from report import Report
+from reports.utils import store_report, load_report
 from mod_report import ModReport
 from typing import Dict
 import pdb
@@ -153,6 +154,7 @@ class ModBot(discord.Client):
             report = self.reports.pop(author_id)
             report_message = "---- New report! ----\n" + str(report)
             await self.mod_channels[report.message.guild.id].send(report_message)
+            await store_report(report)
 
     async def handle_channel_message(self, message):
         # Only handle messages sent in the "group-#" channel

@@ -67,10 +67,12 @@ class Report:
 
     def __init__(self, report_num, client, author_id):
         self.report_num = report_num
+        self.channel = None
         self.state = State.REPORT_START
         self.client = client
         self.author_id = author_id
         self.message = None
+        self.message_link = None
         self.message_text = "```N/A```"
         self.help_message = ""
         self.who = None
@@ -91,6 +93,7 @@ class Report:
         s += f"Report Status: {report_status}\n"
         s += f"Author ID: {self.author_id}\n"
         s += "--------------------------------------------------\n"
+        s += f"Message link: {self.message_link}\n"
         m = self.message_text if self.message else "`Awaiting`"
         s += f"Message: {m}\n"
         s += f"Person Involved: `{self.who if self.who else 'Awaiting'}`\n"
@@ -154,7 +157,9 @@ class Report:
 
             # Here we've found the message - it's up to you to decide what to do next!
             self.state = State.MESSAGE_IDENTIFIED
+            self.channel = channel
             message_content = self.message.content.replace('```', '``')
+            self.message_link = message.content
             self.message_text = (
                 f"```{self.message.author.display_name}: {message_content}```"
             )
