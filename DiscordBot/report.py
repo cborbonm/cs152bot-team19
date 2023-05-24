@@ -67,10 +67,11 @@ class Report:
 
     def __init__(self, report_num, client, author_id):
         self.report_num = report_num
-        self.channel = None
+        self.author_id = author_id
+        self.author_channel = None
+        self.author_channel_id = None
         self.state = State.REPORT_START
         self.client = client
-        self.author_id = author_id
         self.message = None
         self.message_link = None
         self.message_text = "```N/A```"
@@ -112,6 +113,10 @@ class Report:
         prompts to offer at each of those states. You're welcome to change anything you want; this skeleton is just here to
         get you started and give you a model for working with Discord.
         """
+
+        if not self.author_channel:
+            self.author_channel = message.channel
+            self.author_channel_id = self.author_channel.id
 
         if message.content == self.CANCEL_KEYWORD:
             self.state = State.REPORT_CANCELLED
@@ -157,7 +162,6 @@ class Report:
 
             # Here we've found the message - it's up to you to decide what to do next!
             self.state = State.MESSAGE_IDENTIFIED
-            self.channel = channel
             message_content = self.message.content.replace('```', '``')
             self.message_link = message.content
             self.message_text = (

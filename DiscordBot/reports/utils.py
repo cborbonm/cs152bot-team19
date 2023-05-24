@@ -21,7 +21,7 @@ async def load_report(report_num: int, client: discord.Client) -> Optional[Repor
         return None
     
     with report_loc.open("rb") as f:
-        report = pickle.load(f)
+        report: Report = pickle.load(f)
         report.client = client
 
         # Parse out the three ID strings from the message link
@@ -33,18 +33,21 @@ async def load_report(report_num: int, client: discord.Client) -> Optional[Repor
             return None
         channel = guild.get_channel(int(m.group(2)))
         if not channel:
-            return None
-        report.channel = channel
-        try:
-            report.message = await channel.fetch_message(int(m.group(3)))
-        except discord.errors.NotFound:
             report.message = None
+        else:
+            try:
+                report.message = await channel.fetch_message(int(m.group(3)))
+            except discord.errors.NotFound:
+                report.message = None
+
+        # Get author channel
+        report.author_channel = await client.fetch_channel(report.author_channel_id)
         return report
 
 async def store_report(report: Report):
     report.client = None
-    report.channel = None
-    report.message = None    
+    report.author_channel = None
+    report.message = None
 
     report_num = report.report_num
     report_loc = storage / _report_filename(report_num)
