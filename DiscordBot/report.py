@@ -25,6 +25,7 @@ class Report:
     START_KEYWORD = "report"
     CANCEL_KEYWORD = "cancel"
     HELP_KEYWORD = "help"
+    SOURCE_USER_KEYWORD = "user"
 
     MYSELF_KEYWORD = "myself"
     SOMEONE_ELSE_KEYWORD = "someone else"
@@ -67,6 +68,7 @@ class Report:
 
     def __init__(self, report_num, client, author_id):
         self.report_num = report_num
+        self.source = self.SOURCE_USER_KEYWORD
         self.author_id = author_id
         self.author_channel = None
         self.author_channel_id = None
