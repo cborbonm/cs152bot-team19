@@ -52,6 +52,7 @@ class Report:
 
     EXPL_CONT_CHILD_KEYWORD = "c"
     EXPL_CONT_PORN_KEYWORD = "p"
+    EXPL_CONT_SEXTORTION_KEYWORD = "st"
 
     TYPE_MAP = {
         HARASS_SENS_INFO_KEYWORD: "Leaking Sensitive Information",
@@ -64,6 +65,7 @@ class Report:
         MIS_INFO_SPAM_KEYWORD: "Spam",
         EXPL_CONT_CHILD_KEYWORD: "Child Abuse",
         EXPL_CONT_PORN_KEYWORD: "Pornography"
+        EXPL_CONT_SEXTORTION_KEYWORD: "Sextortion"
     }
 
     def __init__(self, report_num, client, author_id):
@@ -338,6 +340,7 @@ class Report:
         prompt = "Please select the type of explicit content.\n"
         prompt += f"1. For child abuse or harassment, type `{self.EXPL_CONT_CHILD_KEYWORD}`.\n"
         prompt += f"2. For pornography, type `{self.EXPL_CONT_PORN_KEYWORD}`.\n"
+        prompt += f"3. For sextortion, type `{self.EXPL_CONT_SEXTORTION_KEYWORD}`.\n"
         return prompt
 
     def report_complete(self):
