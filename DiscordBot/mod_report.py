@@ -4,6 +4,7 @@ import logging
 import re
 from reports.utils import load_report, store_report
 
+
 class State(Enum):
     MOD_REPORT_START = auto()
 
@@ -12,15 +13,14 @@ class State(Enum):
 
     REVIEWING_REPORT = auto()
     AWAITING_CREDIBLE = auto()
-    
+
     AWAITING_IMMEDIATE_DANGER = auto()
     FINALIZE_OUTCOME = auto()
     AWAITING_DECISION = auto()
-    
+
     REPORT_COMPLETE = auto()
     REPORT_CANCELLED = auto()
-    MOD_REPORT_COMPLETE  = auto()
-
+    MOD_REPORT_COMPLETE = auto()
 
 
 class ModReport:
@@ -58,7 +58,6 @@ class ModReport:
         self.credibility = None
         self.outcome = []
 
-
     def __str__(self) -> str:
         s = "--------------------------------------------------\n"
         s += f"Mod Review Number: {self.mod_review_num}"
@@ -72,13 +71,13 @@ class ModReport:
         s += f"Report Number: {self.report_num if self.report_num else '`Awaiting`'}\n"
         s += "--------------------------------------------------\n"
         return s
-    
+
     async def handle_message(self, message):
-        '''
-        This function makes up the meat of the moderator reporting flow. It defines how we transition between states and what 
+        """
+        This function makes up the meat of the moderator reporting flow. It defines how we transition between states and what
         prompts to offer at each of those states. You're welcome to change anything you want; this skeleton is just here to
-        get you started and give you a model for working with Discord. 
-        '''
+        get you started and give you a model for working with Discord.
+        """
 
         if message.content == self.CANCEL_KEYWORD:
             self.state = State.REPORT_CANCELLED
@@ -110,9 +109,11 @@ class ModReport:
             self.state = State.AWAITING_CREDIBLE
             self.help_message = f"Is this a credible report? Please say  `{self.YES_KEYWORD}` or `{self.NO_KEYWORD}`."
             if message.content.startswith(self.NO_KEYWORD):
-                self.help_message = "Please contact a specialized team.\n" + self.help_message
+                self.help_message = (
+                    "Please contact a specialized team.\n" + self.help_message
+                )
             return [reply, str(self.report), self.help_message]
-        
+
         if self.state == State.AWAITING_CREDIBLE:
             if message.content.startswith(self.YES_KEYWORD):
                 self.credibility = True
@@ -132,20 +133,23 @@ class ModReport:
             if message.content.startswith(self.YES_KEYWORD):
                 mod_notif = "Detected Immediate Danger!\n" + str(self.report)
                 await self.mod_channels[self.report.message.guild.id].send(mod_notif)
-                return ["Please contact a specialized team to make a final outcome on this report.", self.help_message]
+                return [
+                    "Please contact a specialized team to make a final outcome on this report.",
+                    self.help_message,
+                ]
             else:
                 self.report.author_channel.send("*Resources for the victim*")
                 return ["Contact the relevant stakeholders.", self.help_message]
-        
+
         # if self.state == State.FINALIZE_OUTCOME:
         #     self.state = State.MOD_REPORT_COMPLETE
         #     if self.credibility == False:
         #         return ["No action necessary."]
         #     else:
-        #         return ["Based on the contents of the reports what steps should be taken?\n" + 
+        #         return ["Based on the contents of the reports what steps should be taken?\n" +
         #                 "The following options include\n" +
         #                 "1. No action\n"+
-        #                 "2. Attacker account temporary suspension/permanent ban \n" + 
+        #                 "2. Attacker account temporary suspension/permanent ban \n" +
         #                 "3. Contact law enforcement. \n" +
         #                 f"For option 1 say: `{self.NO_ACTION_KEYWORD}`\n" +
         #                 f"For option 2 say: `{self.BAN_ATTACKER_KEYWORD}`\n" +
@@ -157,7 +161,9 @@ class ModReport:
             self.state = State.MOD_REPORT_COMPLETE
             if message.content.startswith(self.NO_ACTION_KEYWORD):
                 await self.no_action_outcome()
-                return ["The user who submitted report will be notified that no action will be taken."]
+                return [
+                    "The user who submitted report will be notified that no action will be taken."
+                ]
             elif message.content.startswith(self.REMOVE_POST_KEYWORD):
                 await self.remove_post_outcome()
                 return ["The victim will be notified of the actions taken."]
@@ -171,15 +177,15 @@ class ModReport:
                 await self.ban_attacker_outcome()
                 await self.engage_law_outcome()
                 return ["Law enforcement will be contacted."]
-        
+
         return []
-    
+
     async def no_action_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-No action will be taken."
         self.outcome.append(self.NO_ACTION_KEYWORD)
         await self.report.author_channel.send(reporter_update)
-    
+
     async def remove_post_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-The post will be removed."
@@ -188,7 +194,7 @@ class ModReport:
         await self.mod_channels[self.report.message.guild.id].send(
             f"--Remove message: {self.report.message_link}--"
         )
-    
+
     async def ban_attacker_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-The offending account will be suspended."
@@ -197,7 +203,7 @@ class ModReport:
         await self.mod_channels[self.report.message.guild.id].send(
             f"--Ban attacker from message: {self.report.message_link}--"
         )
-    
+
     async def engage_law_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-Law enforcement will be engaged."
@@ -216,19 +222,18 @@ class ModReport:
 
     def get_decision_prompt(self):
         return (
-            "Based on the contents of the reports what steps should be taken?\n" + 
-            "The options include: \n" +
-            "1. No action\n"+
-            "2. Remove post\n" +
-            "3. Attacker account temporary suspension/permanent ban \n" + 
-            "4. Contact law enforcement. \n" +
-            f"For option 1 say: `{self.NO_ACTION_KEYWORD}`\n" +
-            f"For option 2 say: `{self.REMOVE_POST_KEYWORD}`\n" +
-            f"For option 2 say: `{self.BAN_ATTACKER_KEYWORD}`\n" +
-            f"For option 3 say: `{self.ENGAGE_LAW_KEYWORD}`\n" +
-            f"For both option 2 and 3 say: `{self.BOTH_ACTIONS_KEYWORD}`\n"
+            "Based on the contents of the reports what steps should be taken?\n"
+            + "The options include: \n"
+            + "1. No action\n"
+            + "2. Remove post\n"
+            + "3. Attacker account temporary suspension/permanent ban \n"
+            + "4. Contact law enforcement. \n"
+            + f"For option 1 say: `{self.NO_ACTION_KEYWORD}`\n"
+            + f"For option 2 say: `{self.REMOVE_POST_KEYWORD}`\n"
+            + f"For option 2 say: `{self.BAN_ATTACKER_KEYWORD}`\n"
+            + f"For option 3 say: `{self.ENGAGE_LAW_KEYWORD}`\n"
+            + f"For both option 2 and 3 say: `{self.BOTH_ACTIONS_KEYWORD}`\n"
         )
-        
 
     def report_complete(self):
         return self.state == State.MOD_REPORT_COMPLETE
