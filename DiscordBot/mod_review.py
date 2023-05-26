@@ -2,7 +2,7 @@ from enum import Enum, auto
 import discord
 import logging
 import re
-from reports.utils import load_report, store_report
+from reports.report_utils import load_report, store_report
 
 
 class State(Enum):
@@ -23,8 +23,8 @@ class State(Enum):
     MOD_REPORT_COMPLETE = auto()
 
 
-class ModReport:
-    START_KEYWORD = "modreview"
+class ModReview:
+    START_KEYWORD = "review"
     CANCEL_KEYWORD = "cancel"
     HELP_KEYWORD = "help"
 
@@ -33,34 +33,37 @@ class ModReport:
 
     NO_ACTION_KEYWORD = "no action"
     REMOVE_POST_KEYWORD = "remove post"
-    BAN_ATTACKER_KEYWORD = "attacker ban"
+    BAN_OFFENDER_KEYWORD = "offender ban"
     ENGAGE_LAW_KEYWORD = "law enforcement"
     BOTH_ACTIONS_KEYWORD = "max penalty"
 
     YES_KEYWORD = "yes"
     NO_KEYWORD = "no"
 
-    def __init__(self, mod_review_num, client, mod_id, mod_channels):
+    def __init__(self, review_num, client, mod_id, mod_channels):
+        self.is_review = True
+        self.review_num = review_num
         self.mod_channels = mod_channels
-        self.report = None
-        self.victim = None
-        self.attacker = None
-        self.modChannel = None
-        self.mod_review_num = mod_review_num
-        self.report_num = None
-        self.mod_id = mod_id
-        self.state = State.MOD_REPORT_START
         self.client = client
+
+        self.report_num = None
+        self.report = None
+
+        self.guild_id = None
+        self.mod_id = mod_id
+        
+        self.state = State.MOD_REPORT_START
         self.help_message = ""
-        self.message = None
-        self.source = None
         self.reason = None
         self.credibility = None
+        
         self.outcome = []
+        self.followups = []
+        self.victim_resources = None
 
     def __str__(self) -> str:
         s = "--------------------------------------------------\n"
-        s += f"Mod Review Number: {self.mod_review_num}"
+        s += f"Mod Review Number: {self.review_num}\n"
         report_status = "In Progress"
         if self.state == State.REPORT_COMPLETE:
             report_status = "Complete"
@@ -96,9 +99,10 @@ class ModReport:
             if not self.report:
                 reply = "Error loading report. Please try again.\n"
                 return [reply, self.help_message]
+            self.guild_id = self.report.guild_id
             reply = "Please review this report.\n"
             if self.report.source == self.AUTO_FLAGGING_KEYWORD:
-                self.help_message = f"Can you tell who is the victim and attacker in this report? Please say `{self.YES_KEYWORD}` or `{self.NO_KEYWORD}`."
+                self.help_message = f"Can you tell who is the victim and offender in this report? Please say `{self.YES_KEYWORD}` or `{self.NO_KEYWORD}`."
                 self.state = State.AWAITING_FLAG
                 return [reply, str(self.report), self.help_message]
             self.state = State.AWAITING_CREDIBLE
@@ -125,6 +129,7 @@ class ModReport:
                 self.help_message = "No action necessary."
                 self.state = State.MOD_REPORT_COMPLETE
                 await self.no_action_outcome()
+                await self.send_followup()
                 return [self.help_message]
 
         if self.state == State.AWAITING_IMMEDIATE_DANGER:
@@ -138,8 +143,8 @@ class ModReport:
                     self.help_message,
                 ]
             else:
-                self.report.author_channel.send("*Resources for the victim*")
-                return ["Contact the relevant stakeholders.", self.help_message]
+                self.victim_resources = "*Resources for the victim*"
+                return [self.help_message]
 
         # if self.state == State.FINALIZE_OUTCOME:
         #     self.state = State.MOD_REPORT_COMPLETE
@@ -159,59 +164,72 @@ class ModReport:
 
         if self.state == State.AWAITING_DECISION:
             self.state = State.MOD_REPORT_COMPLETE
+            reply = []
             if message.content.startswith(self.NO_ACTION_KEYWORD):
                 await self.no_action_outcome()
-                return [
+                reply = [
                     "The user who submitted report will be notified that no action will be taken."
                 ]
             elif message.content.startswith(self.REMOVE_POST_KEYWORD):
                 await self.remove_post_outcome()
-                return ["The victim will be notified of the actions taken."]
-            elif message.content.startswith(self.BAN_ATTACKER_KEYWORD):
-                await self.ban_attacker_outcome()
-                return ["The victim will be notified of the actions taken."]
+                reply = ["The victim will be notified of the actions taken."]
+            elif message.content.startswith(self.BAN_OFFENDER_KEYWORD):
+                await self.ban_offender_outcome()
+                reply = ["The victim will be notified of the actions taken."]
             elif message.content.startswith(self.ENGAGE_LAW_KEYWORD):
                 await self.engage_law_outcome()
-                return ["Law enforcement will be contacted."]
+                reply = ["Law enforcement will be contacted."]
             elif message.content.startswith(self.BOTH_ACTIONS_KEYWORD):
-                await self.ban_attacker_outcome()
+                await self.ban_offender_outcome()
                 await self.engage_law_outcome()
-                return ["Law enforcement will be contacted."]
+                reply = ["Law enforcement will be contacted."]
 
+            # await self.send_followup()
+            return reply
         return []
 
     async def no_action_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-No action will be taken."
         self.outcome.append(self.NO_ACTION_KEYWORD)
-        await self.report.author_channel.send(reporter_update)
+        self.followups.append(reporter_update)
+        # await self.report.author_channel.send(reporter_update)
 
     async def remove_post_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-The post will be removed."
         self.outcome.append(self.REMOVE_POST_KEYWORD)
-        await self.report.author_channel.send(reporter_update)
+        self.followups.append(reporter_update)
+        # await self.report.author_channel.send(reporter_update)
         await self.mod_channels[self.report.message.guild.id].send(
             f"--Remove message: {self.report.message_link}--"
         )
 
-    async def ban_attacker_outcome(self):
+    async def ban_offender_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-The offending account will be suspended."
-        self.outcome.append(self.BAN_ATTACKER_KEYWORD)
-        await self.report.author_channel.send(reporter_update)
+        self.outcome.append(self.BAN_OFFENDER_KEYWORD)
+        self.followups.append(reporter_update)
+        # await self.report.author_channel.send(reporter_update)
         await self.mod_channels[self.report.message.guild.id].send(
-            f"--Ban attacker from message: {self.report.message_link}--"
+            f"--Ban offender from message: {self.report.message_link}--"
         )
 
     async def engage_law_outcome(self):
         reporter_update = f"Update regarding report number {self.report.report_num}.\n"
         reporter_update += "-Law enforcement will be engaged."
         self.outcome.append(self.ENGAGE_LAW_KEYWORD)
-        await self.report.author_channel.send(reporter_update)
+        self.followups.append(reporter_update)
+        # await self.report.author_channel.send(reporter_update)
         await self.mod_channels[self.report.message.guild.id].send(
             f"--Please engage law enforcement!-- \n {self.report}"
         )
+
+    async def send_followup(self):
+        for msg in self.followups:
+            await self.report.author_channel.send(msg)
+        if self.victim_resources:
+            await self.report.author_channel.send(self.victim_resources)
 
     def get_help_messages(self):
         return [
@@ -226,11 +244,11 @@ class ModReport:
             + "The options include: \n"
             + "1. No action\n"
             + "2. Remove post\n"
-            + "3. Attacker account temporary suspension/permanent ban \n"
+            + "3. Offending account temporary suspension/permanent ban \n"
             + "4. Contact law enforcement. \n"
             + f"For option 1 say: `{self.NO_ACTION_KEYWORD}`\n"
             + f"For option 2 say: `{self.REMOVE_POST_KEYWORD}`\n"
-            + f"For option 2 say: `{self.BAN_ATTACKER_KEYWORD}`\n"
+            + f"For option 2 say: `{self.BAN_OFFENDER_KEYWORD}`\n"
             + f"For option 3 say: `{self.ENGAGE_LAW_KEYWORD}`\n"
             + f"For both option 2 and 3 say: `{self.BOTH_ACTIONS_KEYWORD}`\n"
         )

@@ -3,7 +3,7 @@ import pickle
 import pathlib
 import re
 
-from typing import Optional
+from typing import Optional, Union
 
 from report import Report
 
@@ -48,6 +48,7 @@ async def store_report(report: Report):
     report.client = None
     report.author_channel = None
     report.message = None
+    report.mod_channels = None
 
     report_num = report.report_num
     report_loc = storage / _report_filename(report_num)

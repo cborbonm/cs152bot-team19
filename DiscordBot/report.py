@@ -69,6 +69,7 @@ class Report:
     }
 
     def __init__(self, report_num, client, author_id):
+        self.is_review = False
         self.report_num = report_num
         self.source = self.SOURCE_USER_KEYWORD
         self.author_id = author_id
@@ -79,6 +80,7 @@ class Report:
         self.message = None
         self.message_link = None
         self.message_text = "```N/A```"
+        self.guild_id = None
         self.help_message = ""
         self.who = None
         self.have_disc = None
@@ -159,6 +161,7 @@ class Report:
                 ]
             try:
                 self.message = await channel.fetch_message(int(m.group(3)))
+                self.guild_id = guild.id
             except discord.errors.NotFound:
                 return [
                     "It seems this message was deleted or never existed. Please try again or say `cancel` to cancel."

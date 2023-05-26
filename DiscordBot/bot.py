@@ -7,8 +7,9 @@ import logging
 import re
 import requests
 from report import Report
-from reports.utils import store_report, load_report
-from mod_report import ModReport
+from reports.report_utils import store_report, load_report
+from reports.review_utils import store_review, load_review
+from mod_review import ModReview
 from typing import Dict
 import pdb
 
@@ -57,7 +58,7 @@ class ModBot(discord.Client):
         super().__init__(command_prefix=".", intents=intents)
         self.group_num = None
         self.mod_channels = {}  # Map from guild to the mod channel id for that guild
-        self.reports = {}  # Map from user IDs to the state of their report
+        self.processes = {}  # Map from user IDs to the state of their report / review
         self.next_report_num = report_num
 
     async def cleanup(self):
@@ -112,14 +113,14 @@ class ModBot(discord.Client):
         responses = []
         author_id = message.author.id
 
-        if author_id not in self.reports:
+        if author_id not in self.processes:
             # Handle a help message
             if message.content == Report.HELP_KEYWORD:
-                reply = "Use the `report` command to begin the reporting process.\n"
+                reply = f"Use the `{Report.START_KEYWORD}` command to begin the reporting process.\n"
                 reply += "Use the `cancel` command to cancel the report process.\n"
                 if author_id in mods.values():
-                    reply += "Use the `modreport` command to begin the moderator reporting process.\n"
-                reply += "If you are a mod and haven't registered yourself, please add your ID to the repo.\n"
+                    reply += f"Use the `{ModReview.START_KEYWORD}` command to begin the moderator review process.\n"
+                reply += "If you are a mod and haven't registered yourself, please add your ID to `mods.json` the repo.\n"
                 reply += f"Your user ID is: {message.author.id} \n"
                 await message.channel.send(reply)
                 return
@@ -127,16 +128,16 @@ class ModBot(discord.Client):
             # Only respond to messages if they're part of a reporting flow
             if not (
                 message.content.startswith(Report.START_KEYWORD)
-                or message.content.startswith(ModReport.START_KEYWORD)
+                or message.content.startswith(ModReview.START_KEYWORD)
             ):
                 return
 
             # We don't currently have an active report for this user, add one
             if message.content.startswith(Report.START_KEYWORD):
-                self.reports[author_id] = Report(self.next_report_num, self, author_id)
+                self.processes[author_id] = Report(self.next_report_num, self, author_id)
                 self.next_report_num += 1
-            elif message.content.startswith(ModReport.START_KEYWORD):
-                self.reports[author_id] = ModReport(self.next_report_num, self, author_id, self.mod_channels)
+            elif message.content.startswith(ModReview.START_KEYWORD):
+                self.processes[author_id] = ModReview(self.next_report_num, self, author_id, self.mod_channels)
                 self.next_report_num += 1
             else:
                 await message.channel.send(
@@ -145,17 +146,24 @@ class ModBot(discord.Client):
                 return
 
         # Let the report class handle this message; forward all the messages it returns to uss
-        responses = await self.reports[author_id].handle_message(message)
+        responses = await self.processes[author_id].handle_message(message)
         for r in responses:
             await message.channel.send(r)
 
         # If the report is complete or cancelled, remove it from our map
-        if self.reports[author_id].report_complete():
-            report = self.reports.pop(author_id)
-            report_message = "---- New report! ----\n" + str(report)
-            await self.mod_channels[report.message.guild.id].send(report_message)
-            await store_report(report)
-            print(f"Stored report {report.report_num}")
+        if self.processes[author_id].report_complete():
+            process = self.processes.pop(author_id)
+            if not process.is_review:
+                report_message = f"---- New report! Number: {str(process.report_num)} ----\n"
+                await self.mod_channels[process.guild_id].send(report_message)
+                await store_report(process)
+                print(f"Stored report {process.report_num}")
+            else:
+                review_message = f"---- New moderator review complete! Number: {str(process.review_num)} ----\n"
+                await self.mod_channels[process.guild_id].send(review_message)
+                await process.send_followup()
+                await store_review(process)
+                print(f"Stored mod review {process.review_num}")
 
     async def handle_channel_message(self, message):
         # Only handle messages sent in the "group-#" channel
