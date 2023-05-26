@@ -136,7 +136,7 @@ class ModBot(discord.Client):
                 self.reports[author_id] = Report(self.next_report_num, self, author_id)
                 self.next_report_num += 1
             elif message.content.startswith(ModReport.START_KEYWORD):
-                self.reports[author_id] = ModReport(self.next_report_num, self, author_id)
+                self.reports[author_id] = ModReport(self.next_report_num, self, author_id, self.mod_channels)
                 self.next_report_num += 1
             else:
                 await message.channel.send(
@@ -155,6 +155,7 @@ class ModBot(discord.Client):
             report_message = "---- New report! ----\n" + str(report)
             await self.mod_channels[report.message.guild.id].send(report_message)
             await store_report(report)
+            print(f"Stored report {report.report_num}")
 
     async def handle_channel_message(self, message):
         # Only handle messages sent in the "group-#" channel

@@ -64,7 +64,7 @@ class Report:
         MIS_INFO_IMPER_KEYWORD: "Impersonation",
         MIS_INFO_SPAM_KEYWORD: "Spam",
         EXPL_CONT_CHILD_KEYWORD: "Child Abuse",
-        EXPL_CONT_PORN_KEYWORD: "Pornography"
+        EXPL_CONT_PORN_KEYWORD: "Pornography",
         EXPL_CONT_SEXTORTION_KEYWORD: "Sextortion"
     }
 
