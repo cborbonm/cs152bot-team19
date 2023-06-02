@@ -62,6 +62,7 @@ class ModBot(discord.Client):
         self.group_num = None
         self.mod_channels = {}  # Map from guild to the mod channel id for that guild
         self.processes = {}  # Map from user IDs to the state of their report / review
+        self.flagged_users = {}
         self.next_report_num = report_num
         self.next_review_num = review_num
 
@@ -181,8 +182,8 @@ class ModBot(discord.Client):
         await mod_channel.send(
             f'Forwarded message:\n{message.author.display_name}: "{message.content}"'
         )
-        scores = self.eval_text(message.content)
-        await mod_channel.send(self.code_format(scores))
+        eval_message = self.eval_text(message)
+        await mod_channel.send(eval_message)
 
     def eval_text(self, message):
         """'
@@ -190,16 +191,23 @@ class ModBot(discord.Client):
         insert your code here! This will primarily be used in Milestone 3.
         """
         # Ask GPT if it thinks the message is sextortion
-        gpt_answer = ask_gpt(message)
-        return f"GPT says: {gpt_answer}"
+        history = GPTClassification.NO_HISTORY
+        author_id = message.author.id
+        if author_id in self.flagged_users:
+            history = self.flagged_users[author_id]
+        gpt_answer = ask_gpt(message.content, history)
+        if gpt_answer != GPTClassification.NOT_SEXTORTION:
+            self.flagged_users[author_id] = GPTClassification.convert_to_hist(gpt_answer)
+            print(f"Message flagged: '{gpt_answer}'")
+        return self.code_format(gpt_answer, history) 
 
-    def code_format(self, text):
+    def code_format(self,  gpt_flag: str, history:str = GPTClassification.NO_HISTORY):
         """'
         TODO: Once you know how you want to show that a message has been
         evaluated, insert your code here for formatting the string to be
         shown in the mod channel.
         """
-        return "Evaluated: '" + text + "'"
+        return f"History: '{history}' GPT Eval: {gpt_flag}"
 
 
 client = ModBot()

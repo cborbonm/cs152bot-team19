@@ -72,19 +72,24 @@ class Report:
         self.is_review = False
         self.report_num = report_num
         self.source = self.SOURCE_USER_KEYWORD
+        self.help_message = ""
+
+        self.state = State.REPORT_START
+        self.client = client
+        
         self.author_id = author_id
         self.author_channel = None
         self.author_channel_id = None
-        self.state = State.REPORT_START
-        self.client = client
+
         self.message = None
         self.message_link = None
         self.message_text = "```N/A```"
         self.guild_id = None
-        self.help_message = ""
+
         self.who = None
         self.have_disc = None
         self.other_username = None
+
         self.reason = None
         self.reason_type = None
         self.anything_else = None
