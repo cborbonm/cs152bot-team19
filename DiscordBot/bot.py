@@ -197,7 +197,9 @@ class ModBot(discord.Client):
             history = self.flagged_users[author_id]
         gpt_answer = ask_gpt(message.content, history)
         if gpt_answer != GPTClassification.NOT_SEXTORTION:
-            self.flagged_users[author_id] = GPTClassification.convert_to_hist(gpt_answer)
+            gpt_answer_hist = GPTClassification.convert_to_hist(gpt_answer)
+            if GPTClassification.hist_leq(history, gpt_answer_hist):
+                self.flagged_users[author_id] = gpt_answer_hist 
             print(f"Message flagged: '{gpt_answer}'")
         return self.code_format(gpt_answer, history) 
 
