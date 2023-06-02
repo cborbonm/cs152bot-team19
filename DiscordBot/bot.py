@@ -9,6 +9,7 @@ import requests
 from report import Report
 from reports.report_utils import store_report, load_report
 from reports.review_utils import store_review, load_review
+from gpt import GPTClassification, ask_gpt
 from mod_review import ModReview
 from typing import Dict
 import pdb
@@ -45,11 +46,13 @@ report_number_path = "report_number.json"
 if not os.path.isfile(report_number_path):
     print(f"{report_number_path} not found!")
     report_num = 1
+    review_num = 1
 else:
     with open(report_number_path) as f:
         # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
         obj: Dict = json.load(f)
-        report_num = obj.get("report_num", 0)
+        report_num = obj.get("report_num", 1)
+        review_num = obj.get("review_num", 1)
 
 class ModBot(discord.Client):
     def __init__(self):
@@ -60,12 +63,13 @@ class ModBot(discord.Client):
         self.mod_channels = {}  # Map from guild to the mod channel id for that guild
         self.processes = {}  # Map from user IDs to the state of their report / review
         self.next_report_num = report_num
+        self.next_review_num = review_num
 
     async def cleanup(self):
         print("\nCleaning up!")
         with open(report_number_path, "w") as f:
             # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
-            json.dump({"report_num": self.next_report_num}, f)
+            json.dump({"report_num": self.next_report_num, "review_num": self.next_review_num}, f)
         return
     
     async def close(self):
@@ -77,6 +81,7 @@ class ModBot(discord.Client):
         for guild in self.guilds:
             print(f" - {guild.name}")
         print(f"The next report number is {self.next_report_num}.")
+        print(f"The next review number is {self.next_review_num}.")
         print("Press Ctrl-C to quit.")
 
         # Parse the group number out of the bot's name
@@ -137,8 +142,8 @@ class ModBot(discord.Client):
                 self.processes[author_id] = Report(self.next_report_num, self, author_id)
                 self.next_report_num += 1
             elif message.content.startswith(ModReview.START_KEYWORD):
-                self.processes[author_id] = ModReview(self.next_report_num, self, author_id, self.mod_channels)
-                self.next_report_num += 1
+                self.processes[author_id] = ModReview(self.next_review_num, self, author_id, self.mod_channels)
+                self.next_review_num += 1
             else:
                 await message.channel.send(
                     "Sorry, something went wrong starting your report. Please try again."
@@ -170,6 +175,7 @@ class ModBot(discord.Client):
         if not message.channel.name == f"group-{self.group_num}":
             return
 
+        
         # Forward the message to the mod channel
         mod_channel = self.mod_channels[message.guild.id]
         await mod_channel.send(
@@ -183,7 +189,9 @@ class ModBot(discord.Client):
         TODO: Once you know how you want to evaluate messages in your channel,
         insert your code here! This will primarily be used in Milestone 3.
         """
-        return message
+        # Ask GPT if it thinks the message is sextortion
+        gpt_answer = ask_gpt(message)
+        return f"GPT says: {gpt_answer}"
 
     def code_format(self, text):
         """'
