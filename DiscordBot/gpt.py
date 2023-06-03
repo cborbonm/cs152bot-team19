@@ -26,8 +26,8 @@ class GPTClassification:
     YES_SEXTORTION = "Sextortion"
 
     NO_HISTORY = "None"
-    SOME_HISTORY = f"Flagged: {MAYBE_SEXTORTION}"
-    HAS_HISTORY = f"Flagged: {YES_SEXTORTION}"
+    SOME_HISTORY = f"Flagged as {MAYBE_SEXTORTION}"
+    HAS_HISTORY = f"Flagged as {YES_SEXTORTION}"
 
     f_to_h = {
         NOT_SEXTORTION: NO_HISTORY,
