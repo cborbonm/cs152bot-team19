@@ -11,6 +11,7 @@ from reports.report_utils import store_report, load_report
 from reports.review_utils import store_review, load_review
 from gpt import GPTClassification, ask_gpt
 from mod_review import ModReview
+from perspectiveAPI import getAPIScore
 from typing import Dict
 import pdb
 
@@ -190,6 +191,7 @@ class ModBot(discord.Client):
         insert your code here! This will primarily be used in Milestone 3.
         """
         # Ask GPT if it thinks the message is sextortion
+        perspectiveAPIScore = getAPIScore(message)
         gpt_answer = ask_gpt(message)
         return f"GPT says: {gpt_answer}"
 
