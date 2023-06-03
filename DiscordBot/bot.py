@@ -15,6 +15,11 @@ from perspectiveAPI import getAPIScore
 from typing import Dict
 import pdb
 
+_HISTORY_TTLS = {
+    GPTClassification.MAYBE_SEXTORTION: 5,
+    GPTClassification.YES_SEXTORTION: 20
+}
+
 # Set up logging to the console
 logger = logging.getLogger("discord")
 logger.setLevel(logging.DEBUG)
@@ -63,6 +68,7 @@ class ModBot(discord.Client):
         self.group_num = None
         self.mod_channels = {}  # Map from guild to the mod channel id for that guild
         self.processes = {}  # Map from user IDs to the state of their report / review
+        self.flagged_users = {}
         self.next_report_num = report_num
         self.next_review_num = review_num
 
@@ -175,33 +181,55 @@ class ModBot(discord.Client):
         # Only handle messages sent in the "group-#" channel
         if not message.channel.name == f"group-{self.group_num}":
             return
-
         
         # Forward the message to the mod channel
-        mod_channel = self.mod_channels[message.guild.id]
-        await mod_channel.send(
-            f'Forwarded message:\n{message.author.display_name}: "{message.content}"'
-        )
-        scores = self.eval_text(message.content)
-        await mod_channel.send(self.code_format(scores))
+        flag, eval_message = self.eval_text(message)
+        if flag:
+            mod_channel = self.mod_channels[message.guild.id]
+            await mod_channel.send(
+                f'Forwarded message:\n{message.author.display_name}: "{message.content}"'
+            )
+            await mod_channel.send(eval_message)
 
     def eval_text(self, message):
         """'
         TODO: Once you know how you want to evaluate messages in your channel,
         insert your code here! This will primarily be used in Milestone 3.
         """
+        # Get user history
+        flag = False
+        history = GPTClassification.NO_HISTORY
+        ttl = 0
+        author_id = message.author.id
+        if author_id in self.flagged_users:
+            hist, ttl = self.flagged_users[author_id]
+            ttl -= 1
+            if ttl > 0:
+                history = hist
+                self.flagged_users[author_id] = hist, ttl
+            else:
+                del self.flagged_users[author_id]
+            
         # Ask GPT if it thinks the message is sextortion
         perspectiveAPIScore = getAPIScore(message)
-        gpt_answer = ask_gpt(message)
-        return f"GPT says: {gpt_answer}"
+        gpt_answer = ask_gpt(message.content, history)
 
-    def code_format(self, text):
+        # If sextortion, flag the message
+        if gpt_answer != GPTClassification.NOT_SEXTORTION:
+            flag = True
+            gpt_answer_hist = GPTClassification.convert_to_hist(gpt_answer)
+            if GPTClassification.hist_leq(history, gpt_answer_hist):
+                self.flagged_users[author_id] = gpt_answer_hist, _HISTORY_TTLS[gpt_answer]
+            logging.warning(f"Flag: '{gpt_answer}' Message: '{message.content}'")
+        return flag, self.code_format(gpt_answer, history, ttl)
+
+    def code_format(self,  gpt_flag: str, history:str = GPTClassification.NO_HISTORY, ttl:int = 0):
         """'
         TODO: Once you know how you want to show that a message has been
         evaluated, insert your code here for formatting the string to be
         shown in the mod channel.
         """
-        return "Evaluated: '" + text + "'"
+        return f"History: '{history}' TTL: {ttl}\nGPT Eval: {gpt_flag}"
 
 
 client = ModBot()

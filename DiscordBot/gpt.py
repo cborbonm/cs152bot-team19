@@ -25,32 +25,114 @@ class GPTClassification:
     MAYBE_SEXTORTION = "Potentially Sextortion"
     YES_SEXTORTION = "Sextortion"
 
-def ask_gpt(message: str):
+    NO_HISTORY = "None"
+    SOME_HISTORY = f"Flagged as {MAYBE_SEXTORTION}"
+    HAS_HISTORY = f"Flagged as {YES_SEXTORTION}"
+
+    f_to_h = {
+        NOT_SEXTORTION: NO_HISTORY,
+        MAYBE_SEXTORTION: SOME_HISTORY,
+        YES_SEXTORTION: HAS_HISTORY
+    }
+
+    def convert_to_hist(flag: str) -> str:
+        return GPTClassification.f_to_h.get(flag, GPTClassification.NO_HISTORY)
+    
+    def hist_leq(a: str, b: str) -> bool:
+        if a == GPTClassification.NO_HISTORY:
+            return True
+        if b == GPTClassification.NO_HISTORY:
+            return False
+        if a == GPTClassification.SOME_HISTORY:
+            return True
+        if b == GPTClassification.SOME_HISTORY:
+            return False
+        return True
+
+# History, message, flag
+_PROMPTS = [
+    [   GPTClassification.NO_HISTORY,
+        "I found naked pictures of you.",
+        GPTClassification.MAYBE_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "I love you",
+        GPTClassification.NOT_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "give me money",
+        GPTClassification.NOT_SEXTORTION
+    ],
+    [   GPTClassification.SOME_HISTORY,
+        "give me money",
+        GPTClassification.YES_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "Send me nudes.",
+        GPTClassification.MAYBE_SEXTORTION
+    ],
+    [   GPTClassification.SOME_HISTORY,
+        "Send me nudes.",
+        GPTClassification.MAYBE_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "Send me nudes or I'll post your photos online",
+        GPTClassification.YES_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "I found some sensitive photos of you.",
+        GPTClassification.MAYBE_SEXTORTION
+    ],
+    [   GPTClassification.SOME_HISTORY,
+        "I found some sensitive photos of you.",
+        GPTClassification.MAYBE_SEXTORTION
+    ],
+    [   GPTClassification.HAS_HISTORY,
+        "I found some sensitive photos of you.",
+        GPTClassification.YES_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "I found some sensitive photos of you. Maybe we could work out a deal?",
+        GPTClassification.YES_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "Your boyfriend sent me some sensitive photos of you.",
+        GPTClassification.MAYBE_SEXTORTION
+    ],
+    [   GPTClassification.SOME_HISTORY,
+        "Your boyfriend sent me some sensitive photos of you.",
+        GPTClassification.YES_SEXTORTION
+    ],
+    [   GPTClassification.NO_HISTORY,
+        "Your boyfriend sent me some sensitive photos of you. What's stopping me from posting them online?",
+        GPTClassification.YES_SEXTORTION
+    ],
+]
+
+def _prompt_to_gpt_message(prompt):
+    return [{"role": "user", "content": f"History: '{prompt[0]}' Message: {prompt[1]}"}, 
+            {"role": "assistant", "content": prompt[2]}]
+
+_MESSAGES = [_prompt_to_gpt_message(prompt)[ind] for prompt in _PROMPTS for ind in [0,1]]
+
+def ask_gpt(message: str, history: str = GPTClassification.NO_HISTORY):
+    messages = [
+        {
+                "role": "system",
+                "content": f"You are a content moderation system designed for Instagram. "\
+                    f"Classify the input message as either '{GPTClassification.YES_SEXTORTION}', '{GPTClassification.MAYBE_SEXTORTION}', or '{GPTClassification.NOT_SEXTORTION}'. " \
+                    f"It is possible that a message might have come from a conversation that was previously flagged for sextortion. You will be provided the flag in that case. " \
+                    f"Possible flags are '{GPTClassification.NO_HISTORY}', '{GPTClassification.SOME_HISTORY}', and '{GPTClassification.HAS_HISTORY}'."
+                    
+        },
+    ]
+    messages.extend(_MESSAGES)
+    messages.append({"role": "user", "content": f"History: '{history}' Message: {message}"})
     response = openai.ChatCompletion.create(
         model="gpt-4",
-        messages=[
-            {
-                "role": "system",
-                "content": f"You are a content moderation system. Classify the input message as either '{GPTClassification.YES_SEXTORTION}', '{GPTClassification.MAYBE_SEXTORTION}', or '{GPTClassification.NOT_SEXTORTION}'.",
-            },
-            {"role": "user", "content": "I found naked pictures of you."},
-            {"role": "assistant", "content": GPTClassification.MAYBE_SEXTORTION},
-            {"role": "user", "content": "I love you"},
-            {"role": "assistant", "content": GPTClassification.NOT_SEXTORTION},
-            {"role": "user", "content": "Send me nudes."},
-            {"role": "assistant", "content": GPTClassification.MAYBE_SEXTORTION},
-            {"role": "user", "content": "Send me nudes or I'll post your photos online"},
-            {"role": "assistant", "content": GPTClassification.YES_SEXTORTION},
-            {"role": "user", "content": "I found some senstive photos of you. Maybe we could work out a deal?"},
-            {"role": "assistant", "content": GPTClassification.YES_SEXTORTION},
-            {"role": "user", "content": "Your boyfriend sent me some sensitive photos of you."},
-            {"role": "assistant", "content": GPTClassification.MAYBE_SEXTORTION},
-            {"role": "user", "content": "Your boyfriend sent me some sensitive photos of you. What's stopping me from posting them online?"},
-            {"role": "assistant", "content": GPTClassification.YES_SEXTORTION},
-            {"role": "user", "content": message},
-        ],
+        messages = messages
     )
     return response["choices"][0]["message"]["content"]
 
 if __name__ == "__main__":
-    print(ask_gpt("Hello, I have sensitive financial information"))
+    print(ask_gpt("History: 'None' Message: I found some sensitive information about you. Pay me bitcoin or I'll release it."))
