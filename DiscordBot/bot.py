@@ -61,6 +61,8 @@ else:
         review_num = obj.get("review_num", 1)
 
 class ModBot(discord.Client):
+    RESET_KEYWORD = 'reset'
+
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -125,6 +127,10 @@ class ModBot(discord.Client):
         responses = []
         author_id = message.author.id
 
+        if author_id in mods.values() and message.content.startswith(ModBot.RESET_KEYWORD):
+            if author_id in self.flagged_users:
+                del self.flagged_users[author_id]
+
         if author_id not in self.processes:
             # Handle a help message
             if message.content == Report.HELP_KEYWORD:
@@ -132,6 +138,7 @@ class ModBot(discord.Client):
                 reply += "Use the `cancel` command to cancel the report process.\n"
                 if author_id in mods.values():
                     reply += f"Use the `{ModReview.START_KEYWORD}` command to begin the moderator review process.\n"
+                    reply += f"Use the `{ModBot.RESET_KEYWORD}` command to clear your own history of abuse.\n"
                 reply += "If you are a mod and haven't registered yourself, please add your ID to `mods.json` the repo.\n"
                 reply += f"Your user ID is: {message.author.id} \n"
                 await message.channel.send(reply)
@@ -211,7 +218,10 @@ class ModBot(discord.Client):
                 del self.flagged_users[author_id]
             
         # Ask GPT if it thinks the message is sextortion
-        perspectiveAPIScore = getAPIScore(message)
+        try:
+            perspectiveAPIScore = getAPIScore(message.content)
+        except:
+            perspectiveAPIScore = None
         gpt_answer = ask_gpt(message.content, history)
 
         # If sextortion, flag the message
