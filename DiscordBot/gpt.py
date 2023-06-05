@@ -121,7 +121,7 @@ def ask_gpt(message: str, history: str = GPTClassification.NO_HISTORY):
                 "role": "system",
                 "content": f"You are a content moderation system designed for Instagram. "\
                     f"Classify the input message as either '{GPTClassification.YES_SEXTORTION}', '{GPTClassification.MAYBE_SEXTORTION}', or '{GPTClassification.NOT_SEXTORTION}'. " \
-                    f"It is possible that a message might have come from a conversation that was previously flagged for sextortion. You will be provided the flag in that case. " \
+                    f"It is possible that a message might have come from a conversation that was previously flagged for sextortion. You will be provided the history in that case. " \
                     f"Possible flags are '{GPTClassification.NO_HISTORY}', '{GPTClassification.SOME_HISTORY}', and '{GPTClassification.HAS_HISTORY}'."
                     
         },
