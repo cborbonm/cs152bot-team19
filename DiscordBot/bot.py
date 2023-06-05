@@ -221,8 +221,13 @@ class ModBot(discord.Client):
         try:
             perspectiveAPIScore = getAPIScore(message.content)
         except:
+            logging.error("Error getting Google Perspective API Score")
             perspectiveAPIScore = None
-        gpt_answer = ask_gpt(message.content, history)
+        try:
+            gpt_answer = ask_gpt(message.content, history)
+        except:
+            logging.error("Error getting GPT classification")
+            gpt_answer = GPTClassification.NOT_SEXTORTION
 
         # If sextortion, flag the message
         if gpt_answer != GPTClassification.NOT_SEXTORTION:
