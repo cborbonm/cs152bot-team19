@@ -1,3 +1,4 @@
 requests
 discord
 openai
+google-api-python-client
